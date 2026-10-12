@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VitalSign | Intelligent Patient Monitoring System</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loader-content">
+      <div class="pulse-ring"></div>
+      <div class="loader-logo">VS</div>
+      <h2>VitalSign</h2>
+      <p>Initializing Vision Systems...</p>
+      <div class="loading-bar"><div class="loading-progress" id="loadingProgress"></div></div>
+    </div>
+  </div>
+
+  <!-- Emergency Fullscreen Overlay -->
+  <div id="emergencyOverlay" class="emergency-overlay hidden">
+    <div class="emergency-content">
+      <div class="emergency-icon">🆘</div>
+      <h1>EMERGENCY ALERT</h1>
+      <p>Patient requires immediate assistance</p>
+      <div class="emergency-timer" id="emergencyTimer">00:00</div>
+      <button class="btn-danger" onclick="dismissEmergency()">DISMISS ALARM</button>
+    </div>
+  </div>
+
+  <!-- Top Navigation -->
+  <nav class="top-nav">
+    <div class="nav-brand">
+      <div class="logo-mark">VS</div>
+      <div class="brand-text">
+        <span class="brand-name">VitalSign</span>
+        <span class="brand-pro">LIVE</span>
+      </div>
+    </div>
+    <div class="nav-status">
+      <div class="status-pill online" id="systemStatus">
+        <span class="status-dot"></span>
+        <span>SYSTEM ONLINE</span>
+      </div>
+      <div class="nav-time" id="liveClock">--:--:--</div>
+    </div>
+    <div class="nav-actions">
+      <button class="icon-btn" onclick="toggleSound()" title="Sound">
+        <span id="soundIcon">🔊</span>
+      </button>
+      <button class="icon-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+      <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
+    </div>
+  </nav>
+
+  <!-- Main Dashboard Grid -->
+  <main class="dashboard">
+    <!-- Left Column: Camera + Vision -->
+    <section class="panel camera-panel">
+      <div class="panel-header">
+        <h3>Live Vision Feed</h3>
+        <div class="header-badges">
+          <span class="badge" id="fpsBadge">0 FPS</span>
+          <span class="badge badge-green" id="handBadge">HAND: --</span>
+          <span class="badge badge-blue" id="faceBadge">FACE: --</span>
+        </div>
+      </div>
+      <div class="video-container">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+        <div class="vision-overlay">
+          <div class="scan-line"></div>
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="corner bl"></div>
+          <div class="corner br"></div>
+        </div>
+        <div class="gesture-feedback" id="gestureFeedback">
+          <div class="gf-name" id="gfName">Awaiting Gesture</div>
+          <div class="gf-bar"><div class="gf-fill" id="gfFill"></div></div>
+          <div class="gf-conf" id="gfConf">Confidence: 0%</div>
+        </div>
+      </div>
+      <div class="vision-stats">
+        <div class="vstat">
+          <span class="vstat-label">Hand Landmarks</span>
+          <span class="vstat-value" id="handLandmarks">0</span>
+        </div>
+        <div class="vstat">
+          <span class="vstat-label">Face Landmarks</span>
+          <span class="vstat-value" id="faceLandmarks">0</span>
+        </div>
+        <div class="vstat">
+          <span class="vstat-label">EAR (Eyes)</span>
+          <span class="vstat-value" id="earValue">--</span>
+        </div>
+        <div class="vstat">
+          <span class="vstat-label">Expression</span>
+          <span class="vstat-value" id="expressionValue">Neutral</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Center Column: Patient Status + Controls -->
+    <section class="panel status-panel">
+      <div class="panel-header">
+        <h3>Patient Status</h3>
+        <span class="live-indicator">● LIVE</span>
+      </div>
+
+      <div class="patient-card">
+        <div class="patient-avatar">
+          <div class="avatar-ring" id="avatarRing"></div>
+          <span class="avatar-icon">👤</span>
+        </div>
+        <div class="patient-info">
+          <h4 id="patientName">Patient #01</h4>
+          <p class="patient-id">ID: VS-2026-001</p>
+        </div>
+        <div class="patient-state" id="patientState">
+          <span class="state-dot awake"></span>
+          <span id="stateText">CHECKING...</span>
+        </div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-icon">👁️</div>
+          <div class="metric-data">
+            <span class="metric-label">Eye Status</span>
+            <span class="metric-value" id="eyeStatus">Open</span>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon">😊</div>
+          <div class="metric-data">
+            <span class="metric-label">Expression</span>
+            <span class="metric-value" id="faceExpression">Neutral</span>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon">🤚</div>
+          <div class="metric-data">
+            <span class="metric-label">Last Gesture</span>
+            <span class="metric-value" id="lastGesture">None</span>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon">⏱️</div>
+          <div class="metric-data">
+            <span class="metric-label">Session Time</span>
+            <span class="metric-value" id="sessionTime">00:00:00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sleep-monitor">
+        <h4>Sleep / Wake Monitor</h4>
+        <div class="sleep-bar-container">
+          <div class="sleep-bar" id="sleepBar"></div>
+        </div>
+        <div class="sleep-info">
+          <span id="sleepStatusText">Eyes open – Patient alert</span>
+          <span id="sleepDuration">0s closed</span>
+        </div>
+      </div>
+
+      <div class="quick-actions">
+        <h4>Quick Actions</h4>
+        <div class="action-buttons">
+          <button class="action-btn" onclick="sendManualRequest('Water')">💧 Water</button>
+          <button class="action-btn" onclick="sendManualRequest('Washroom')">🚻 Washroom</button>
+          <button class="action-btn emergency" onclick="triggerEmergency()">🆘 Emergency</button>
+          <button class="action-btn" onclick="sendManualRequest('Medicine')">💊 Medicine</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Requests + Communication -->
+    <section class="panel request-panel">
+      <div class="panel-header">
+        <h3>Request Center</h3>
+        <button class="text-btn" onclick="clearHistory()">Clear Log</button>
+      </div>
+
+      <div class="request-stats">
+        <div class="rstat">
+          <span class="rstat-num" id="totalRequests">0</span>
+          <span class="rstat-label">Total Today</span>
+        </div>
+        <div class="rstat">
+          <span class="rstat-num" id="emergencyCount">0</span>
+          <span class="rstat-label">Emergencies</span>
+        </div>
+        <div class="rstat">
+          <span class="rstat-num" id="avgResponse">--</span>
+          <span class="rstat-label">Avg Response</span>
+        </div>
+      </div>
+
+      <div class="request-log" id="requestLog">
+        <div class="log-empty">No requests yet. Gestures will appear here.</div>
+      </div>
+    </section>
+
+    <!-- Bottom Row: Gestures Guide + Two-way + Settings Preview -->
+    <section class="panel gestures-panel">
+      <div class="panel-header">
+        <h3>Gesture Command Map</h3>
+        <span class="badge">8 Active Gestures</span>
+      </div>
+      <div class="gestures-grid" id="gesturesGrid">
+        <!-- Populated by JS -->
+      </div>
+    </section>
+
+    <section class="panel comm-panel">
+      <div class="panel-header">
+        <h3>Two-Way Communication</h3>
+        <span class="badge badge-purple">Chat + Photo</span>
+      </div>
+      <div class="comm-area">
+        <div class="incoming-messages" id="incomingMessages">
+          <div class="msg-placeholder">Messages from attender appear here and are spoken aloud to the patient...</div>
+        </div>
+        <div class="comm-input-row">
+          <input type="text" id="attenderMessage" placeholder="Type message to chat with attender...">
+          <button class="btn-primary" onclick="sendChatToAttender()">Send ➤</button>
+        </div>
+        <div class="comm-input-row" style="margin-top:8px;">
+          <button class="btn-secondary full" onclick="sendPhotoToAttender()">📷 Send Live Photo Now</button>
+        </div>
+        <p class="comm-hint">Attender can request a photo anytime by sending <strong>photo</strong> or <strong>/photo</strong> to the Telegram bot. Emergency also auto-sends a photo. Patient messages go to attender; replies are spoken here.</p>
+      </div>
+    </section>
+
+    <section class="panel config-panel">
+      <div class="panel-header">
+        <h3>System Configuration</h3>
+      </div>
+      <div class="config-form">
+        <div class="form-group">
+          <label>Telegram Bot Token</label>
+          <input type="password" id="botToken" placeholder="123456:ABC...">
+        </div>
+        <div class="form-group">
+          <label>Nurse / Attender Chat ID</label>
+          <input type="text" id="chatId" placeholder="8247531010">
+        </div>
+        <div class="form-group">
+          <label>Patient Display Name</label>
+          <input type="text" id="patientNameInput" placeholder="Patient #01" value="Patient #01">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Hold Time (ms)</label>
+            <input type="number" id="holdTime" value="900" min="400" max="2000">
+          </div>
+          <div class="form-group">
+            <label>Cooldown (ms)</label>
+            <input type="number" id="cooldown" value="4500" min="2000" max="15000">
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="checkbox-label">
+            <input type="checkbox" id="enableFace" checked>
+            Enable Face & Eye Tracking
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="enableAlarm" checked>
+            Emergency Alarm Sound
+          </label>
+        </div>
+        <button class="btn-primary full" onclick="saveConfig()">Save Configuration</button>
+        <button class="btn-secondary full" onclick="testTelegram()">Test Telegram Connection</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast Notifications -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Advanced Settings</h3>
+        <button class="close-btn" onclick="closeSettings()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-item">
+          <label>Speech Voice</label>
+          <select id="voiceSelect"></select>
+        </div>
+        <div class="setting-item">
+          <label>Speech Rate</label>
+          <input type="range" id="speechRate" min="0.5" max="1.5" step="0.1" value="1">
+        </div>
+        <div class="setting-item">
+          <label>Alarm Volume</label>
+          <input type="range" id="alarmVolume" min="0" max="1" step="0.05" value="0.7">
+        </div>
+        <div class="setting-item">
+          <label>Eye Closed Threshold (seconds)</label>
+          <input type="number" id="sleepThreshold" value="8" min="3" max="30">
+        </div>
+        <div class="setting-item">
+          <label class="checkbox-label">
+            <input type="checkbox" id="autoSpeak" checked>
+            Auto-speak incoming Telegram messages
+          </label>
+        </div>
+        <div class="setting-item">
+          <label class="checkbox-label">
+            <input type="checkbox" id="showLandmarks" checked>
+            Show hand & face landmarks
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="saveAdvancedSettings()">Apply Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MediaPipe Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  <script src="script.js"></script>
+</body>
+</html>
